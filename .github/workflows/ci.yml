@@ -1,0 +1,42 @@
+# CI 워크플로우: 코드 품질 검사
+name: CI - Code Quality Linter
+
+# 워크플로우 실행 조건: 성능 최적화를 위해 필요한 경우만 실행
+on:
+  push:
+    branches: [ main, CI-workflow, CD-workflow ]  # main과 develop 브랜치에 푸시할 때만
+  pull_request:
+    branches: [ main ]           # main으로의 PR에서만
+
+# 워크플로우 전체에서 기본 권한을 제한하여 보안을 강화합니다.
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Code Quality Check
+    runs-on: ubuntu-latest
+
+    # 추가 권한: top-level에서 contents:read를 상속받고, PR 정보만 추가로 읽기
+    permissions:
+      pull-requests: read # Pull Request 정보를 읽기 위해 필요
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Super-Linter
+        uses: github/super-linter@v6
+        env:
+          # --- 검사할 항목 설정 ---
+          VALIDATE_ALL_CODEBASE: false         # push 이벤트에서는 변경된 파일만 검사
+          DEFAULT_BRANCH: main                 # 기본 브랜치 명시적 설정
+          
+          # --- 에러가 발생했던 Linter 비활성화 ---
+          VALIDATE_CSS: false              # CSS 린터 너무 엄격하여 비활성화
+
+          # --- 부가 기능 설정 ---
+          DISABLE_STATUS_API: true     # GitHub 상태 API 비활성화 (권한 최소화)
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

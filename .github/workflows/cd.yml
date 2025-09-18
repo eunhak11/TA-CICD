@@ -1,0 +1,61 @@
+# CD 워크플로우: AWS S3 자동 배포
+name: CD - Deploy to AWS S3
+
+# 워크플로우 실행 조건: main 브랜치에 푸시되고 CI가 성공했을 때
+on:
+  workflow_run:
+    workflows: ["CI - Code Quality Linter"] 
+    types:
+      - completed
+    branches: [main]
+
+# AWS 배포를 위한 기본 권한
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy to AWS S3
+    runs-on: ubuntu-latest
+
+    # CI 워크플로우가 성공했을 때만 실행
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-2  # 서울 리전
+
+      - name: Deploy to S3
+        run: |
+          # S3에 파일 동기화 (HTML, CSS만 업로드)
+          aws s3 sync . s3://ta2025-cicd-testuser \
+            --exclude "*" \
+            --include "*.html" \
+            --include "*.css" \
+            --delete \
+            --cache-control "max-age=86400"
+
+          # S3 버킷 정적 웹사이트 호스팅 설정
+          aws s3 website s3://ta2025-cicd-testuser \
+            --index-document index.html \
+            --error-document index.html
+
+          echo "✅ S3 배포 완료!"
+          echo "🌐 웹사이트 URL: http://ta2025-cicd-testuser.s3-website.ap-northeast-2.amazonaws.com"
+
+      - name: Verify Deployment
+        run: |
+          # 배포된 파일 확인
+          echo "📋 배포된 파일 목록:"
+          aws s3 ls s3://ta2025-cicd-testuser --recursive
+
+          # 웹사이트 상태 확인
+          echo "🔍 웹사이트 상태 확인:"
+          curl -I http://ta2025-cicd-testuser.s3-website.ap-northeast-2.amazonaws.com || echo "⚠️ 웹사이트 접근 실패: DNS 전파 대기 중이거나 S3 설정 확인 필요"

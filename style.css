@@ -70,10 +70,6 @@ main {
 }
 
 @media (max-width: 768px) {
-    .container {
-        padding: 2rem;
-    }
-
     h1 {
         font-size: 2rem;
     }
